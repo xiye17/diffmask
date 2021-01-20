@@ -8,9 +8,8 @@ import torch
 import numpy as np
 import pytorch_lightning as pl
 
-from diffmask.models.question_answering_squad_diffmask import (
-    BertQuestionAnsweringSquadDiffMask,
-    PerSampleBertQuestionAnsweringSquadDiffMask,
+from diffmask.models.question_answering_rob_squad_diffmask import (
+    RobertaQuestionAnsweringSquadDiffMask,
 )
 from diffmask.utils.callbacks import CallbackSquadDiffMask
 
@@ -21,26 +20,26 @@ if __name__ == "__main__":
     parser.add_argument(
         "--model",
         type=str,
-        default="bert-large-uncased-whole-word-masking-finetuned-squad",
+        default="checkpoints/squad_roberta-base",
     )
     parser.add_argument("--epochs", type=int, default=1)
     parser.add_argument(
         "--train_filename",
         type=str,
-        default="./datasets/squad/train-v1.1_bert-large-uncased-whole-word-masking-finetuned-squad.json",
+        default="./features/train_squad_roberta-base-512",
     )
     parser.add_argument(
         "--val_filename",
         type=str,
-        default="./datasets/squad/dev-v1.1_bert-large-uncased-whole-word-masking-finetuned-squad.json",
+        default="./features/dev_squad_roberta-base-512",
     )
     parser.add_argument("--batch_size", type=int, default=8)
     parser.add_argument("--learning_rate", type=float, default=3e-4)
     parser.add_argument("--seed", type=int, default=0)
 
     parser.add_argument("--gate_bias", action="store_true")
-    parser.add_argument("--learning_rate_alpha", type=float, default=3e-1)
-    parser.add_argument("--learning_rate_placeholder", type=float, default=1e-3)
+    parser.add_argument("--learning_rate_alpha", type=float, default=1e-1)
+    parser.add_argument("--learning_rate_placeholder", type=float, default=3e-4)
     parser.add_argument("--eps", type=float, default=1)
     parser.add_argument("--eps_valid", type=float, default=3)
     parser.add_argument("--acc_valid", type=float, default=0.0)
@@ -61,7 +60,7 @@ if __name__ == "__main__":
     
     os.environ["CUDA_VISIBLE_DEVICES"] = hparams.gpu
 
-    model = BertQuestionAnsweringSquadDiffMask(hparams)
+    model = RobertaQuestionAnsweringSquadDiffMask(hparams)
 
     trainer = pl.Trainer(
         gpus=int(hparams.gpu != ""),
@@ -71,7 +70,7 @@ if __name__ == "__main__":
         checkpoint_callback=pl.callbacks.ModelCheckpoint(
             filepath=os.path.join(
                 "outputs",
-                "squad-bert-{}-layer_pred={}".format(hparams.gate, hparams.layer_pred),
+                "squad-roberta-{}-layer_pred={}".format(hparams.gate, hparams.layer_pred),
                 "{epoch}-{val_acc:.2f}-{val_f1:.2f}-{val_l0:.2f}",
             ),
             verbose=True,

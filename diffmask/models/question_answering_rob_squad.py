@@ -5,41 +5,35 @@ from tqdm.auto import tqdm
 import torch
 import pytorch_lightning as pl
 from transformers import (
-    BertTokenizer,
-    BertForQuestionAnswering,
+    RobertaTokenizer,
+    RobertaForQuestionAnswering,
     get_constant_schedule_with_warmup,
     get_constant_schedule,
 )
 from ..utils.util import accuracy_precision_recall_f1
 
-
 def load_squad(path, tokenizer):
-
-    with open(path, "r") as f:
-        data = json.load(f)
-
+    features_and_dataset = torch.load(path)
+    features, dataset, examples = (
+        features_and_dataset["features"],
+        features_and_dataset["dataset"],
+        features_and_dataset["examples"],
+    )
+    # ['input_ids', 'token_type_ids', 'attention_mask', 'start_positions', 'end_positions']
     input_dicts = OrderedDict()
+    # ['question', 'context', 'answer_offsets']
     data_orig = OrderedDict()
-    for k, v in tqdm(data.items()):
-        input_dict = tokenizer.encode_plus(
-            v["question"],
-            v["context"],
-            max_length=384,
-            pad_to_max_length=True,
-            return_tensors="pt",
-        )
-        input_dict["start_positions"] = torch.tensor(
-            [e[0] + len(v["question"]) + 2 for e in v["answer_offsets"]]
-        )
-        input_dict["end_positions"] = torch.tensor(
-            [e[1] + len(v["question"]) + 2 for e in v["answer_offsets"]]
-        )
+    for ex in features:
+        qas_id = ex.qas_id
+        input_dict = {}
+        input_dict['input_ids'] = torch.tensor([ex.input_ids])
+        input_dict['token_type_ids'] = torch.tensor([ex.token_type_ids])
+        input_dict['attention_mask'] = torch.tensor([ex.attention_mask])
+        input_dict['start_positions'] = torch.tensor([ex.start_position])
+        input_dict['end_positions'] = torch.tensor([ex.end_position])
 
-        if len(v["question"]) + len(v["context"]) + 2 < 384 and all(
-            f < 384 for e in v["answer_offsets"] for f in e
-        ):
-            input_dicts[k] = input_dict
-            data_orig[k] = v
+        input_dicts[qas_id] = input_dict
+        data_orig[qas_id] = ex
 
     max_ans = max(t["end_positions"].shape[0] for t in input_dicts.values())
 
@@ -60,11 +54,62 @@ def load_squad(path, tokenizer):
     return torch.utils.data.TensorDataset(*tensor_dataset), data_orig
 
 
+# def load_squad(path, tokenizer):
+#     features_and_dataset = torch.load(path)
+#     features, dataset, examples = (
+#         features_and_dataset["features"],
+#         features_and_dataset["dataset"],
+#         features_and_dataset["examples"],
+#     )
+#     print(features[0])
+#     exit()
+#     input_dicts = OrderedDict()
+#     data_orig = OrderedDict()
+#     for k, v in tqdm(data.items()):
+#         input_dict = tokenizer.encode_plus(
+#             v["question"],
+#             v["context"],
+#             max_length=384,
+#             pad_to_max_length=True,
+#             return_tensors="pt",
+#         )
+#         input_dict["start_positions"] = torch.tensor(
+#             [e[0] + len(v["question"]) + 2 for e in v["answer_offsets"]]
+#         )
+#         input_dict["end_positions"] = torch.tensor(
+#             [e[1] + len(v["question"]) + 2 for e in v["answer_offsets"]]
+#         )
+
+#         if len(v["question"]) + len(v["context"]) + 2 < 384 and all(
+#             f < 384 for e in v["answer_offsets"] for f in e
+#         ):
+#             input_dicts[k] = input_dict
+#             data_orig[k] = v
+
+#     max_ans = max(t["end_positions"].shape[0] for t in input_dicts.values())
+
+#     tensor_dataset = [
+#         torch.cat([t[k] for t in input_dicts.values()], 0)
+#         for k in ("input_ids", "attention_mask", "token_type_ids",)
+#     ] + [
+#         torch.stack(
+#             [
+#                 torch.nn.functional.pad(t[k], (0, max_ans - t[k].shape[0]), value=-1)
+#                 for t in input_dicts.values()
+#             ],
+#             0,
+#         )
+#         for k in ("start_positions", "end_positions",)
+#     ]
+
+#     return torch.utils.data.TensorDataset(*tensor_dataset), data_orig
+
+
 class QuestionAnsweringSquad(pl.LightningModule):
     def __init__(self, hparams):
         super().__init__()
         self.hparams = hparams
-        self.tokenizer = BertTokenizer.from_pretrained(self.hparams.model)
+        self.tokenizer = RobertaTokenizer.from_pretrained(self.hparams.model)
 
     def prepare_data(self):
         # assign to use in dataloaders
@@ -180,14 +225,13 @@ class QuestionAnsweringSquad(pl.LightningModule):
 
         return optimizers, schedulers
 
-
-class BertQuestionAnsweringSquad(QuestionAnsweringSquad):
+class RobertaQuestionAnsweringSquad(QuestionAnsweringSquad):
     def __init__(self, hparams):
         super().__init__(hparams)
-        self.net = BertForQuestionAnswering.from_pretrained(self.hparams.model)
+        self.net = RobertaForQuestionAnswering.from_pretrained(self.hparams.model)
 
     def forward(
-        self, input_ids, mask, token_type_ids, start_positions=None, end_positions=None
+        self, input_ids, mask, token_type_ids=None, start_positions=None, end_positions=None
     ):
         return self.net(
             input_ids=input_ids, attention_mask=mask, token_type_ids=token_type_ids

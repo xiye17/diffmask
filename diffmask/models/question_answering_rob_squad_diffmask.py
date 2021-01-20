@@ -5,9 +5,9 @@ from transformers import (
     get_constant_schedule_with_warmup,
     get_constant_schedule,
 )
-from .question_answering_squad import (
+from .question_answering_rob_squad import (
     QuestionAnsweringSquad,
-    BertQuestionAnsweringSquad,
+    RobertaQuestionAnsweringSquad,
 )
 from .gates import (
     DiffMaskGateInput,
@@ -19,8 +19,8 @@ from .gates import (
 )
 from ..optim.lookahead import LookaheadRMSprop
 from ..utils.getter_setter import (
-    bert_getter,
-    bert_setter,
+    roberta_getter,
+    roberta_setter,
 )
 from ..utils.util import accuracy_precision_recall_f1
 
@@ -215,8 +215,8 @@ class QuestionAnsweringSquadDiffMask(QuestionAnsweringSquad):
                 )
 
 
-class BertQuestionAnsweringSquadDiffMask(
-    QuestionAnsweringSquadDiffMask, BertQuestionAnsweringSquad,
+class RobertaQuestionAnsweringSquadDiffMask(
+    QuestionAnsweringSquadDiffMask, RobertaQuestionAnsweringSquad,
 ):
     def __init__(self, hparams):
         super().__init__(hparams)
@@ -238,7 +238,7 @@ class BertQuestionAnsweringSquadDiffMask(
             gate_fn=MLPMaxGate if self.hparams.gate == "input" else MLPGate,
             gate_bias=hparams.gate_bias,
             placeholder=hparams.placeholder,
-            init_vector=self.net.bert.embeddings.word_embeddings.weight[
+            init_vector=self.net.roberta.embeddings.word_embeddings.weight[
                 self.tokenizer.mask_token_id
             ]
             if self.hparams.layer_pred == 0 or self.hparams.gate == "input"
@@ -274,7 +274,7 @@ class BertQuestionAnsweringSquadDiffMask(
 
         self.net.eval()
 
-        (logits_start_orig, logits_end_orig,), hidden_states = bert_getter(
+        (logits_start_orig, logits_end_orig,), hidden_states = roberta_getter(
             self.net, inputs_dict
         )
 
@@ -324,7 +324,7 @@ class BertQuestionAnsweringSquadDiffMask(
                 + [None] * (len(hidden_states) - layer_drop - 1)
             )
 
-            (logits_start, logits_end,), _ = bert_setter(
+            (logits_start, logits_end,), _ = roberta_setter(
                 self.net, inputs_dict, hidden_states=new_hidden_states,
             )
 
@@ -340,103 +340,3 @@ class BertQuestionAnsweringSquadDiffMask(
             layer_drop,
             layer_pred,
         )
-
-
-class PerSampleBertQuestionAnsweringSquadDiffMask(BertQuestionAnsweringSquadDiffMask):
-    def __init__(self, hparams):
-        super().__init__(hparams)
-
-        self.gate = PerSampleDiffMaskGate(
-            hidden_size=self.net.config.hidden_size,
-            num_hidden_layers=1,
-            max_position_embeddings=384,
-            batch_size=1,
-            placeholder=False,
-            init_vector=None,
-        )
-
-        self.alpha = torch.nn.Parameter(torch.ones((1,)))
-
-    def prepare_data(self):
-        # assign to use in dataloaders
-        samples = [int(e) for e in self.hparams.samples.split(",")]
-        if (
-            not hasattr(self, "train_dataset")
-            or not hasattr(self, "train_dataset_orig")
-        ) and self.training:
-            self.train_dataset, self.train_dataset_orig = self._squad_reader(
-                self.hparams.train_filename,
-            )
-
-            self.train_dataset_orig = list(self.train_dataset_orig)
-            self.train_dataset = torch.utils.data.Subset(self.train_dataset, samples)
-            self.train_dataset_orig = {
-                self.train_dataset_orig[i][0]: self.train_dataset_orig[i][1]
-                for i in samples
-            }
-
-        if not hasattr(self, "val_dataset") or not hasattr(self, "val_dataset_orig"):
-            self.val_dataset, self.val_dataset_orig = self._squad_reader(
-                self.hparams.val_filename,
-            )
-
-            self.val_dataset_orig = list(self.val_dataset_orig)
-            self.val_dataset = torch.utils.data.Subset(self.val_dataset, samples)
-            self.val_dataset_orig = {
-                self.val_dataset_orig[i][0]: self.val_dataset_orig[i][1]
-                for i in samples
-            }
-
-    def train_dataloader(self):
-        return torch.utils.data.DataLoader(
-            self.train_dataset, batch_size=self.hparams.batch_size, shuffle=False
-        )
-
-    def optimizer_step(
-        self,
-        current_epoch,
-        batch_idx,
-        optimizer,
-        optimizer_idx,
-        second_order_closure=None,
-    ):
-        if optimizer_idx == 0:
-            optimizer.step()
-            optimizer.zero_grad()
-
-            self.gate.logits.data = torch.where(
-                self.gate.logits.data < -10,
-                torch.full_like(self.gate.logits.data, -10),
-                self.gate.logits.data,
-            )
-            self.gate.logits.data = torch.where(
-                self.gate.logits.data > 10,
-                torch.full_like(self.gate.logits.data, 10),
-                self.gate.logits.data,
-            )
-            self.gate.logits.data = torch.where(
-                torch.isnan(self.gate.logits.data),
-                torch.full_like(self.gate.logits.data, 0),
-                self.gate.logits.data,
-            )
-
-        elif optimizer_idx == 1:
-            self.alpha.grad *= -1
-            optimizer.step()
-            optimizer.zero_grad()
-
-            self.alpha.data = torch.where(
-                self.alpha.data < 0,
-                torch.full_like(self.alpha.data, 0),
-                self.alpha.data,
-            )
-            self.alpha.data = torch.where(
-                self.alpha.data > 200,
-                torch.full_like(self.alpha.data, 200),
-                self.alpha.data,
-            )
-            self.alpha.data = torch.where(
-                torch.isnan(self.alpha.data),
-                torch.full_like(self.alpha.data, 1),
-                self.alpha.data,
-            )

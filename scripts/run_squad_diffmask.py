@@ -9,8 +9,7 @@ import numpy as np
 import pytorch_lightning as pl
 
 from diffmask.models.question_answering_squad_diffmask import (
-    BertQuestionAnsweringSquadDiffMask,
-    PerSampleBertQuestionAnsweringSquadDiffMask,
+    RobertaQuestionAnsweringSquadDiffMask
 )
 from diffmask.utils.callbacks import CallbackSquadDiffMask
 
@@ -21,18 +20,18 @@ if __name__ == "__main__":
     parser.add_argument(
         "--model",
         type=str,
-        default="bert-large-uncased-whole-word-masking-finetuned-squad",
+        default="checkpoints/squad_roberta-base",
     )
     parser.add_argument("--epochs", type=int, default=1)
     parser.add_argument(
         "--train_filename",
         type=str,
-        default="./datasets/squad/train-v1.1_bert-large-uncased-whole-word-masking-finetuned-squad.json",
+        default="./cached/train_squad_roberta-base_512",
     )
     parser.add_argument(
         "--val_filename",
         type=str,
-        default="./datasets/squad/dev-v1.1_bert-large-uncased-whole-word-masking-finetuned-squad.json",
+        default="./cached/dev_squad_roberta-base_512",
     )
     parser.add_argument("--batch_size", type=int, default=8)
     parser.add_argument("--learning_rate", type=float, default=3e-4)
