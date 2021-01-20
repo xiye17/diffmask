@@ -126,3 +126,45 @@ def plot_squad_attributions(
         plt.savefig(name, bbox_inches="tight", pad_inches=0)
     else:
         plt.show()
+
+
+def plot_rob_squad_attributions(
+    attributions,
+    tokens,
+    inputs_dict,
+    logits_start_orig,
+    logits_end_orig,
+    name=None,
+    save=False,
+):
+
+    fig = plt.figure(figsize=(9, len(tokens) / 3))
+    ax = fig.add_subplot(111, aspect=2)
+    fig.patch.set_facecolor("white")
+    plt.pcolormesh(
+        (attributions / attributions.abs().max(0, keepdim=True).values).flip(0),
+        edgecolors="k",
+        linewidth=0.01,
+    )
+
+    plt.yticks(
+        torch.arange(len(tokens)) + 0.5,
+        reversed(
+            [
+                r"$\bf{{{}}}$".format(e)
+                if logits_start_orig.argmax(-1).item()
+                <= i
+                <= logits_end_orig.argmax(-1).item()
+                else e
+                for i, e in enumerate(tokens)
+            ]
+        ),
+        size=16,
+    )
+
+    plt.xticks(torch.arange(0, 25, 3) + 0.5, ["E"] + list(range(3, 25, 3)), size=16)
+
+    if save:
+        plt.savefig(name, bbox_inches="tight", pad_inches=0)
+    else:
+        plt.show()

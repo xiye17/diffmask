@@ -26,12 +26,12 @@ if __name__ == "__main__":
     parser.add_argument(
         "--train_filename",
         type=str,
-        default="./features/train_squad_roberta-base-512",
+        default="./features/train_squad_roberta-base_512",
     )
     parser.add_argument(
         "--val_filename",
         type=str,
-        default="./features/dev_squad_roberta-base-512",
+        default="./features/dev_squad_roberta-base_512",
     )
     parser.add_argument("--batch_size", type=int, default=8)
     parser.add_argument("--learning_rate", type=float, default=3e-4)

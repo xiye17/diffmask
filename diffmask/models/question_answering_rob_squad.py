@@ -12,7 +12,7 @@ from transformers import (
 )
 from ..utils.util import accuracy_precision_recall_f1
 
-def load_squad(path, tokenizer):
+def load_squad(path, tokenizer, return_dataset=True):
     features_and_dataset = torch.load(path)
     features, dataset, examples = (
         features_and_dataset["features"],
@@ -23,6 +23,7 @@ def load_squad(path, tokenizer):
     input_dicts = OrderedDict()
     # ['question', 'context', 'answer_offsets']
     data_orig = OrderedDict()
+    print('Num Data', len(features), path)
     for ex in features:
         qas_id = ex.qas_id
         input_dict = {}
@@ -34,6 +35,8 @@ def load_squad(path, tokenizer):
 
         input_dicts[qas_id] = input_dict
         data_orig[qas_id] = ex
+    if not return_dataset:
+        return input_dicts, data_orig
 
     max_ans = max(t["end_positions"].shape[0] for t in input_dicts.values())
 
