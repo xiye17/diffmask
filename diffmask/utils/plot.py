@@ -150,14 +150,15 @@ def plot_rob_squad_attributions(
     plt.yticks(
         torch.arange(len(tokens)) + 0.5,
         reversed(
-            [
-                r"$\bf{{{}}}$".format(e)
-                if logits_start_orig.argmax(-1).item()
-                <= i
-                <= logits_end_orig.argmax(-1).item()
-                else e
-                for i, e in enumerate(tokens)
-            ]
+            # [
+            #     r"$\bf{{{}}}$".format(e)
+            #     if logits_start_orig.argmax(-1).item()
+            #     <= i
+            #     <= logits_end_orig.argmax(-1).item()
+            #     else e
+            #     for i, e in enumerate(tokens)
+            # ]
+            [ e for i, e in enumerate(tokens) ]
         ),
         size=16,
     )

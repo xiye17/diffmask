@@ -23,7 +23,7 @@ def load_squad(path, tokenizer, return_dataset=True):
     input_dicts = OrderedDict()
     # ['question', 'context', 'answer_offsets']
     data_orig = OrderedDict()
-    print('Num Data', len(features), path)
+    # print('Num Data', len(features), path)
     for ex in features:
         qas_id = ex.qas_id
         input_dict = {}
