@@ -71,11 +71,11 @@ def condense_attributions(tokenizer, feature, attribution):
 def aggregated_token_attribution_in_context(tokenizer, feature, attribution, targets):
     target_segments = []
     for tok in targets:
-        target_segments.extend(extract_token_segments(tokenizer, feature, tok, include_question=True))
+        target_segments.extend(extract_token_segments(tokenizer, feature, tok, include_question=False))
     # print(targets)
     # for a, b in target_segments:
     #     print(interp['feature'].tokens[a:b])
-    print(attribution)
+    # print(attribution)
     token_attribution = attribution.numpy()
     token_attribution[token_attribution < 0] = 0
     doc_tokens = feature.tokens
@@ -85,10 +85,11 @@ def aggregated_token_attribution_in_context(tokenizer, feature, attribution, tar
     selected_attribution = token_attribution[selected_idx]
 
     # return_val = np.sum(selected_attribution)
-    # return_val = np.sum(selected_attribution) / np.sum(token_attribution[(context_start + 1):]) / len(selected_idx)
+    
     # return_val = np.sum(selected_attribution) / np.sum(token_attribution)
-    # return_val = np.sum(selected_attribution) / len(selected_idx) / np.sum(token_attribution)
-    return_val = np.sum(selected_attribution) /len(selected_idx)
+    # return_val = np.sum(selected_attribution) / len(selected_idx) / (np.sum(token_attribution) / len(doc_tokens))
+    return_val = np.sum(selected_attribution) / len(selected_idx) /  (np.sum(token_attribution[(context_start + 1):]) / (len(doc_tokens) - context_start - 1))
+    # return_val = np.sum(selected_attribution) /len(selected_idx)
     return return_val
 
 def get_impacts_of_property(tokenizer, feature, attribution, annotation):
